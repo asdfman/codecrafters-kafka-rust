@@ -1,9 +1,10 @@
 pub struct Server {}
 use anyhow::{Context, Result};
+use bytes::Bytes;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 
-use crate::protocol::Response;
+use crate::protocol::{Request, Response};
 
 impl Server {
     pub fn new() -> Self {
@@ -31,10 +32,11 @@ fn handle_connection(mut stream: TcpStream) -> Result<()> {
     println!("accepted new connection");
     let mut buffer = [0u8; 1024];
     if let Ok(length) = stream.read(&mut buffer) {
-        let response = Response::default();
-        let bytes = response.get_bytes();
+        let request_bytes = Bytes::copy_from_slice(&buffer[..length]);
+        let request = Request::from_bytes(request_bytes);
+        let response = Response::new(request.correlation_id);
         stream
-            .write_all(&bytes)
+            .write_all(&response.get_bytes())
             .context("Failed to write response")?;
         stream.flush()?;
     }
