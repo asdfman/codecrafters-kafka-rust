@@ -8,20 +8,22 @@ pub struct Request {
 }
 
 impl Request {
-    pub fn from_bytes(mut bytes: Bytes) -> Self {
-        Self {
-            message_size: bytes.get_i32(),
-            request_api_key: bytes.get_i16(),
-            request_api_version: bytes.get_i16(),
-            correlation_id: bytes.get_i32(),
-        }
-    }
-
     pub fn get_bytes(&self) -> Bytes {
         let mut bytes = BytesMut::new();
         bytes.put_i16(self.request_api_key);
         bytes.put_i16(self.request_api_version);
         bytes.put_i32(self.correlation_id);
         bytes.freeze()
+    }
+}
+
+impl From<Bytes> for Request {
+    fn from(mut bytes: Bytes) -> Self {
+        Self {
+            message_size: bytes.get_i32(),
+            request_api_key: bytes.get_i16(),
+            request_api_version: bytes.get_i16(),
+            correlation_id: bytes.get_i32(),
+        }
     }
 }

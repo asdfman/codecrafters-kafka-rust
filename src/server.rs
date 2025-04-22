@@ -33,10 +33,10 @@ fn handle_connection(mut stream: TcpStream) -> Result<()> {
     let mut buffer = [0u8; 1024];
     if let Ok(length) = stream.read(&mut buffer) {
         let request_bytes = Bytes::copy_from_slice(&buffer[..length]);
-        let request = Request::from_bytes(request_bytes);
-        let response = Response::new(request.correlation_id);
+        let request = Request::from(request_bytes);
+        let response = Response::new(request.correlation_id, 35);
         stream
-            .write_all(&response.get_bytes())
+            .write_all(&Bytes::from(response))
             .context("Failed to write response")?;
         stream.flush()?;
     }
