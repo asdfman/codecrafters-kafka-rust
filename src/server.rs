@@ -3,6 +3,8 @@ use anyhow::{Context, Result};
 use bytes::Bytes;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::thread;
+use std::time::Duration;
 
 use crate::handler::handle_request;
 
@@ -16,8 +18,9 @@ impl Server {
         for stream in listener.incoming() {
             match stream {
                 Ok(_stream) => {
-                    println!("accepted new connection");
-                    handle_connection(_stream)?;
+                    thread::spawn(|| {
+                        let _ = handle_connection(_stream);
+                    });
                 }
                 Err(e) => {
                     println!("error: {}", e);
@@ -33,11 +36,15 @@ fn handle_connection(mut stream: TcpStream) -> Result<()> {
     let mut buffer = [0u8; 1024];
     while let Ok(length) = stream.read(&mut buffer) {
         let request_bytes = Bytes::copy_from_slice(&buffer[..length]);
+        if request_bytes.is_empty() {
+            break;
+        }
         let response = handle_request(request_bytes)?;
         stream
             .write_all(&response)
             .context("Failed to write response")?;
         stream.flush()?;
+        thread::sleep(Duration::from_millis(1000));
     }
     Ok(())
 }
