@@ -4,7 +4,7 @@ use bytes::Bytes;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 
-use crate::protocol::{Request, Response};
+use crate::handler::handle_request;
 
 impl Server {
     pub fn new() -> Self {
@@ -33,10 +33,9 @@ fn handle_connection(mut stream: TcpStream) -> Result<()> {
     let mut buffer = [0u8; 1024];
     if let Ok(length) = stream.read(&mut buffer) {
         let request_bytes = Bytes::copy_from_slice(&buffer[..length]);
-        let request = Request::from(request_bytes);
-        let response = Response::new(request.correlation_id, 35);
+        let response = handle_request(request_bytes)?;
         stream
-            .write_all(&Bytes::from(response))
+            .write_all(&response)
             .context("Failed to write response")?;
         stream.flush()?;
     }

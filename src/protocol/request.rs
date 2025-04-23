@@ -1,5 +1,6 @@
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 
+#[derive(Debug)]
 pub struct Request {
     pub message_size: i32,
     pub request_api_key: i16,
