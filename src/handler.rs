@@ -18,7 +18,7 @@ pub fn handle_request(bytes: Bytes) -> anyhow::Result<Bytes> {
 }
 
 fn api_versions_handler(req: Request) -> Response<ApiVersionsResponse> {
-    if req.request_api_version > 4 {
+    if (API_VERSIONS_MIN_VER..=API_VERSIONS_MAX_VER).contains(&req.request_api_version) {
         return Response::new(req.correlation_id, ErrorCode::Unsupported, None);
     }
     let body = Some(ApiVersionsResponse {
