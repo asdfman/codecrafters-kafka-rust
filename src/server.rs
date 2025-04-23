@@ -31,7 +31,7 @@ impl Server {
 fn handle_connection(mut stream: TcpStream) -> Result<()> {
     println!("accepted new connection");
     let mut buffer = [0u8; 1024];
-    if let Ok(length) = stream.read(&mut buffer) {
+    while let Ok(length) = stream.read(&mut buffer) {
         let request_bytes = Bytes::copy_from_slice(&buffer[..length]);
         let response = handle_request(request_bytes)?;
         stream
