@@ -14,7 +14,7 @@ pub enum ErrorCode {
     Unsupported = 35,
 }
 
-impl<T: ResponseBody> Response<T> {
+impl<T> Response<T> {
     pub fn new(correlation_id: i32, error_code: ErrorCode, body: Option<T>) -> Self {
         Self {
             correlation_id,
@@ -24,7 +24,11 @@ impl<T: ResponseBody> Response<T> {
     }
 }
 
-trait ResponseBody {
+impl ResponseBody for () {
+    fn get_bytes(&self, _bytes: &mut BytesMut) {}
+}
+
+pub trait ResponseBody {
     fn get_bytes(&self, bytes: &mut BytesMut);
 }
 
@@ -69,4 +73,10 @@ impl ResponseBody for ApiVersionsResponse {
         bytes.put_i32(0); // throttle time 0
         bytes.put_i8(0); // tag buffer
     }
+}
+
+pub struct DescribeTopicResponse {}
+
+impl ResponseBody for DescribeTopicResponse {
+    fn get_bytes(&self, bytes: &mut BytesMut) {}
 }
