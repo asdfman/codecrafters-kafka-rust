@@ -6,7 +6,7 @@ use std::net::{TcpListener, TcpStream};
 use std::thread;
 use std::time::Duration;
 
-use crate::handler::handle_request;
+use crate::handler::process_request;
 
 impl Server {
     pub fn new() -> Self {
@@ -39,7 +39,7 @@ fn handle_connection(mut stream: TcpStream) -> Result<()> {
         if request_bytes.is_empty() {
             break;
         }
-        let response = handle_request(request_bytes)?;
+        let response = process_request(request_bytes)?;
         stream
             .write_all(&response)
             .context("Failed to write response")?;

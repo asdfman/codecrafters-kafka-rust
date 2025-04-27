@@ -4,3 +4,7 @@ mod response;
 pub use response::*;
 mod common;
 pub use common::*;
+mod describe_topic;
+pub use describe_topic::*;
+mod api_versions;
+pub use api_versions::*;
