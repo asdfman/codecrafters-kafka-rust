@@ -19,6 +19,7 @@ pub enum ErrorCode {
     NoError = 0,
     UnknownTopicOrPartition = 3,
     Unsupported = 35,
+    UnknownTopic = 100,
 }
 
 impl From<i16> for Api {
