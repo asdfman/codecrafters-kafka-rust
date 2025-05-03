@@ -10,3 +10,5 @@ mod api_versions;
 pub use api_versions::*;
 mod varint;
 pub use varint::*;
+mod fetch;
+pub use fetch::*;

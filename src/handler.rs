@@ -13,6 +13,8 @@ pub fn process_request(mut bytes: Bytes) -> anyhow::Result<Bytes> {
         Ok(describe_topic_partitions_handler(&mut bytes, header))
     } else if api == Api::ApiVersions {
         Ok(api_versions_handler(header))
+    } else if api == Api::Fetch {
+        Ok(fetch_handler(&mut bytes, header))
     } else {
         Ok(invalid_request_handler(header))
     }
