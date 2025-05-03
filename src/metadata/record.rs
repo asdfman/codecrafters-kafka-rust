@@ -11,7 +11,6 @@ pub enum RecordType {
 impl Deserialize for RecordType {
     fn deserialize(bytes: &mut Bytes) -> Self {
         let record_type = bytes.as_ref()[1] as i8;
-        dbg!(&record_type);
         match record_type {
             2 => RecordType::Topic(TopicRecord::deserialize(bytes)),
             3 => RecordType::Partition(PartitionRecord::deserialize(bytes)),

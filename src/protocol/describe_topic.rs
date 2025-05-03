@@ -1,7 +1,7 @@
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 
 use crate::{
-    metadata::{read_metadata, MetadataFile, PartitionRecord},
+    metadata::{read_metadata, MetadataFile},
     protocol::{ErrorCode, Response},
 };
 
@@ -9,14 +9,29 @@ use super::{CompactArray, Deserialize, RequestHeader, Serialize, TextData};
 
 #[derive(Debug)]
 pub struct DescribeTopicPartitionsRequest {
-    topics_array: CompactArray<TextData>,
+    topics_array: CompactArray<TopicRequestItem>,
     response_partition_limit: i32,
     cursor: i8,
 }
 
+#[derive(Debug)]
+pub struct TopicRequestItem {
+    pub topic_name: TextData,
+}
+
+impl Deserialize for TopicRequestItem {
+    fn deserialize(bytes: &mut Bytes) -> Self {
+        let topic = Self {
+            topic_name: TextData::deserialize(bytes),
+        };
+        bytes.advance(1); // tag buffer
+        topic
+    }
+}
+
 impl Deserialize for DescribeTopicPartitionsRequest {
     fn deserialize(bytes: &mut Bytes) -> Self {
-        let topics_array = CompactArray::<TextData>::deserialize(bytes);
+        let topics_array = CompactArray::<TopicRequestItem>::deserialize(bytes);
         let response_partition_limit = bytes.get_i32();
         let cursor = bytes.get_i8();
         Self {
@@ -91,9 +106,10 @@ impl Serialize for Partition {
 pub fn describe_topic_partitions_handler(bytes: &mut Bytes, header: RequestHeader) -> Bytes {
     let metadata = read_metadata().unwrap();
     let req = DescribeTopicPartitionsRequest::deserialize(bytes);
+    //dbg!(&req);
     let mut topics = vec![];
     for topic in req.topics_array.array.iter() {
-        topics.push(handle_topic(&topic.data, &metadata));
+        topics.push(handle_topic(&topic.topic_name.data, &metadata));
     }
     let response = Response::new(
         header.correlation_id,

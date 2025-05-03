@@ -63,7 +63,7 @@ pub struct TextData {
 
 impl Deserialize for TextData {
     fn deserialize(bytes: &mut Bytes) -> Self {
-        let length = bytes.get_i8() - 1;
+        let length = VarIntUnsigned::deserialize(bytes).0 - 1;
         let data = String::from_utf8_lossy(&bytes.copy_to_bytes(length as usize)).to_string();
         Self { data }
     }

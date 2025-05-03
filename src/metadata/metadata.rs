@@ -1,6 +1,6 @@
 use crate::{
-    metadata::{PartitionRecord, Record, RecordBatch, RecordType, TopicRecord},
-    protocol::{Deserialize, Topic},
+    metadata::{PartitionRecord, RecordBatch, TopicRecord},
+    protocol::Deserialize,
 };
 use anyhow::Result;
 use bytes::{Buf, Bytes};
@@ -17,8 +17,8 @@ impl Deserialize for MetadataFile {
         let mut record_batches = Vec::new();
         while bytes.has_remaining() {
             let record_batch = RecordBatch::deserialize(bytes);
-            dbg!(&record_batch);
             record_batches.push(record_batch);
+            // dbg!(&bytes.len());
         }
         Self { record_batches }
     }
