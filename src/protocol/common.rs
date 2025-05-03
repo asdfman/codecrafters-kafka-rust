@@ -8,6 +8,7 @@ use super::VarIntUnsigned;
 #[repr(i16)]
 pub enum Api {
     Invalid,
+    Fetch = 1,
     ApiVersions = 18,
     DescribeTopicPartitions = 75,
 }
@@ -23,6 +24,7 @@ pub enum ErrorCode {
 impl From<i16> for Api {
     fn from(value: i16) -> Self {
         match value {
+            1 => Self::Fetch,
             18 => Self::ApiVersions,
             75 => Self::DescribeTopicPartitions,
             _ => Self::Invalid,
@@ -37,6 +39,7 @@ impl Api {
 
     pub fn versions(&self) -> (i16, i16) {
         match self {
+            Self::Fetch => (0, 16),
             Self::ApiVersions => (0, 4),
             Self::DescribeTopicPartitions => (0, 0),
             Self::Invalid => (0, 0),
