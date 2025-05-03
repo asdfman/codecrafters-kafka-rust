@@ -8,3 +8,5 @@ mod describe_topic;
 pub use describe_topic::*;
 mod api_versions;
 pub use api_versions::*;
+mod varint;
+pub use varint::*;

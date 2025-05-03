@@ -2,6 +2,8 @@ use bytes::{Buf, BufMut, Bytes, BytesMut};
 use strum::IntoEnumIterator;
 use strum_macros::EnumIter;
 
+use super::VarIntUnsigned;
+
 #[derive(EnumIter, PartialEq, Clone)]
 #[repr(i16)]
 pub enum Api {
@@ -54,7 +56,7 @@ impl Deserialize for ClientId {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TextData {
     pub data: String,
 }
@@ -62,9 +64,7 @@ pub struct TextData {
 impl Deserialize for TextData {
     fn deserialize(bytes: &mut Bytes) -> Self {
         let length = bytes.get_i8() - 1;
-        println!("length: {}", length);
         let data = String::from_utf8_lossy(&bytes.copy_to_bytes(length as usize)).to_string();
-        println!("data: {:?}", data);
         Self { data }
     }
 }
@@ -76,7 +76,7 @@ impl Serialize for TextData {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CompactArray<T> {
     pub array: Vec<T>,
 }
@@ -89,20 +89,25 @@ impl<T> CompactArray<T> {
 
 impl<T: Deserialize> Deserialize for CompactArray<T> {
     fn deserialize(bytes: &mut Bytes) -> Self {
-        let length = bytes.get_i8();
-        println!("length: {}", length);
+        let length = VarIntUnsigned::deserialize(bytes);
         Self {
-            array: (1..length).map(|_| T::deserialize(bytes)).collect(),
+            array: (1..length.0).map(|_| T::deserialize(bytes)).collect(),
         }
     }
 }
 
 impl<T: Serialize> Serialize for CompactArray<T> {
     fn serialize(&self, bytes: &mut BytesMut) {
-        bytes.put_i8(self.array.len() as i8 + 1);
+        VarIntUnsigned(self.array.len() as u64 + 1).serialize(bytes);
         for item in &self.array {
             item.serialize(bytes);
         }
+    }
+}
+
+impl Serialize for i32 {
+    fn serialize(&self, bytes: &mut BytesMut) {
+        bytes.put_i32(*self);
     }
 }
 
