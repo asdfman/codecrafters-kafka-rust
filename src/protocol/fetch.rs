@@ -1,4 +1,8 @@
-use crate::protocol::{CompactArray, Response};
+use crate::{
+    metadata::{read_metadata, MetadataFile},
+    protocol::{CompactArray, Response},
+};
+use anyhow::Result;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 
 use super::{Deserialize, ErrorCode, RequestHeader, Serialize};
@@ -95,11 +99,16 @@ impl Serialize for FetchTopicPartition {
 }
 
 pub fn fetch_handler(bytes: &mut bytes::Bytes, header: RequestHeader) -> Bytes {
+    let metadata = read_metadata().unwrap();
     let req = FetchRequest::deserialize(bytes);
     dbg!(&req);
     let mut responses = vec![];
     for topic in req.topics.array.iter() {
-        responses.push(handle_topic(topic));
+        if let Some(topic_found) = metadata.get_topics().find(|x| x.uuid == topic.topic_id) {
+            responses.push(topic_not_found_response(topic, &metadata, true));
+        } else {
+            responses.push(topic_not_found_response(topic, &metadata, false));
+        }
     }
     let response_body = FetchResponseBody {
         error_code: ErrorCode::NoError,
@@ -111,11 +120,19 @@ pub fn fetch_handler(bytes: &mut bytes::Bytes, header: RequestHeader) -> Bytes {
     response.into()
 }
 
-fn handle_topic(topic: &FetchTopic) -> FetchTopicResponse {
+fn topic_not_found_response(
+    topic: &FetchTopic,
+    metadata: &MetadataFile,
+    found: bool,
+) -> FetchTopicResponse {
     let mut partitions = vec![];
     partitions.push(FetchTopicPartition {
         partition_index: 0,
-        error_code: ErrorCode::UnknownTopic,
+        error_code: if !found {
+            ErrorCode::UnknownTopic
+        } else {
+            ErrorCode::NoError
+        },
         high_watermark: 0,
         last_stable_offset: 0,
         log_start_offset: 0,
