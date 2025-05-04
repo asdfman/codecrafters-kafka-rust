@@ -1,4 +1,4 @@
-pub struct Server {}
+pub struct Server;
 use anyhow::{Context, Result};
 use bytes::Bytes;
 use std::io::{Read, Write};
@@ -9,9 +9,6 @@ use std::time::Duration;
 use crate::handler::process_request;
 
 impl Server {
-    pub fn new() -> Self {
-        Self {}
-    }
     pub fn run(self) -> Result<()> {
         let listener = TcpListener::bind("127.0.0.1:9092").unwrap();
 

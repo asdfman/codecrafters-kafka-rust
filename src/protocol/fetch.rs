@@ -11,23 +11,23 @@ use super::{Deserialize, ErrorCode, RequestHeader, Serialize, VarIntUnsigned};
 
 #[derive(Debug)]
 pub struct FetchRequest {
-    max_wait_ms: i32,
-    min_bytes: i32,
-    max_bytes: i32,
-    isolation_level: i8,
+    _max_wait_ms: i32,
+    _min_bytes: i32,
+    _max_bytes: i32,
+    _isolation_level: i8,
     session_id: i32,
-    session_epoch: i32,
+    _session_epoch: i32,
     topics: CompactArray<FetchTopic>,
 }
 impl Deserialize for FetchRequest {
     fn deserialize(bytes: &mut bytes::Bytes) -> Self {
         Self {
-            max_wait_ms: bytes.get_i32(),
-            min_bytes: bytes.get_i32(),
-            max_bytes: bytes.get_i32(),
-            isolation_level: bytes.get_i8(),
+            _max_wait_ms: bytes.get_i32(),
+            _min_bytes: bytes.get_i32(),
+            _max_bytes: bytes.get_i32(),
+            _isolation_level: bytes.get_i8(),
             session_id: bytes.get_i32(),
-            session_epoch: bytes.get_i32(),
+            _session_epoch: bytes.get_i32(),
             topics: CompactArray::<FetchTopic>::deserialize(bytes),
         }
     }
@@ -58,22 +58,18 @@ impl Serialize for FetchResponseBody {
         bytes.put_i32(self.session_id);
         self.responses.serialize(bytes);
         bytes.put_i8(0); // tag buffer
-                         //bytes.put_u8(255); // next cursor
     }
 }
 
 #[derive(Debug)]
 pub struct FetchTopicResponse {
     topic_id: i128,
-    partitions: Vec<FetchTopicPartition>,
+    partitions: CompactArray<FetchTopicPartition>,
 }
 impl Serialize for FetchTopicResponse {
     fn serialize(&self, bytes: &mut BytesMut) {
         bytes.put_i128(self.topic_id);
-        bytes.put_u8(self.partitions.len() as u8 + 1);
-        for partition in &self.partitions {
-            partition.serialize(bytes);
-        }
+        self.partitions.serialize(bytes);
         bytes.put_i8(0); // tag buffer
     }
 }
@@ -113,6 +109,7 @@ impl Serialize for FetchTopicPartition {
 pub fn fetch_handler(bytes: &mut bytes::Bytes, header: RequestHeader) -> Result<Bytes> {
     let metadata = read_cluster_metadata().unwrap();
     let req = FetchRequest::deserialize(bytes);
+    dbg!(&req);
     let mut responses = vec![];
     for topic in req.topics.array.iter() {
         if let Some(topic_found) = metadata.get_topics().find(|x| x.uuid == topic.topic_id) {
@@ -131,6 +128,7 @@ pub fn fetch_handler(bytes: &mut bytes::Bytes, header: RequestHeader) -> Result<
 }
 
 fn topic_handler(topic_record: &TopicRecord, metadata: &MetadataFile) -> FetchTopicResponse {
+    dbg!(topic_record);
     let mut partitions = vec![];
     let partition_iter = metadata.get_topic_partitions(&topic_record.uuid);
     for partition in partition_iter {
@@ -138,9 +136,6 @@ fn topic_handler(topic_record: &TopicRecord, metadata: &MetadataFile) -> FetchTo
         if let Ok(partition_metadata) =
             read_partition_metadata(topic_record.topic_name.data.clone(), partition.partition_id)
         {
-            if partition.partition_id == 1 {
-                continue;
-            }
             for record in partition_metadata.record_batches {
                 records.push(record);
             }
@@ -158,7 +153,7 @@ fn topic_handler(topic_record: &TopicRecord, metadata: &MetadataFile) -> FetchTo
     }
     FetchTopicResponse {
         topic_id: topic_record.uuid,
-        partitions,
+        partitions: CompactArray::new(partitions),
     }
 }
 
@@ -175,6 +170,6 @@ fn topic_not_found_response(topic: &FetchTopic) -> FetchTopicResponse {
     }];
     FetchTopicResponse {
         topic_id: topic.topic_id,
-        partitions,
+        partitions: CompactArray::new(partitions),
     }
 }

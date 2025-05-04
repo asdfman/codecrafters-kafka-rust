@@ -48,15 +48,14 @@ impl Api {
     }
 }
 
-#[derive(Debug)]
 pub struct ClientId {
-    id: String,
+    _id: String,
 }
 impl Deserialize for ClientId {
     fn deserialize(bytes: &mut Bytes) -> Self {
         let length = bytes.get_i16();
         let id = String::from_utf8_lossy(&bytes.copy_to_bytes(length as usize)).to_string();
-        Self { id }
+        Self { _id: id }
     }
 }
 

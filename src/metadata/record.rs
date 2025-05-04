@@ -1,6 +1,4 @@
-use crate::protocol::{
-    CompactArray, Deserialize, Partition, Serialize, TextData, VarIntSigned, VarIntUnsigned,
-};
+use crate::protocol::{CompactArray, Deserialize, Partition, Serialize, TextData, VarIntUnsigned};
 use bytes::{Buf, BufMut, Bytes};
 
 #[derive(Debug)]
@@ -72,43 +70,43 @@ impl Serialize for RawBytesRecord {
 
 #[derive(Debug)]
 pub struct TopicRecord {
-    frame_version: i8,
-    record_type: i8,
-    version: i8,
+    _frame_version: i8,
+    _record_type: i8,
+    _version: i8,
     pub topic_name: TextData,
     pub uuid: i128,
-    tagged_fields_count: u8,
+    _tagged_fields_count: u8,
 }
 
 impl Deserialize for TopicRecord {
     fn deserialize(bytes: &mut Bytes) -> Self {
         Self {
-            frame_version: bytes.get_i8(),
-            record_type: bytes.get_i8(),
-            version: bytes.get_i8(),
+            _frame_version: bytes.get_i8(),
+            _record_type: bytes.get_i8(),
+            _version: bytes.get_i8(),
             topic_name: TextData::deserialize(bytes),
             uuid: bytes.get_i128(),
-            tagged_fields_count: bytes.get_u8(),
+            _tagged_fields_count: bytes.get_u8(),
         }
     }
 }
 
 #[derive(Debug)]
 pub struct PartitionRecord {
-    frame_version: i8,
-    record_type: i8,
-    version: i8,
+    _frame_version: i8,
+    _record_type: i8,
+    _version: i8,
     pub partition_id: i32,
     topic_uuid: i128,
     replica_array: CompactArray<i32>,
     in_sync_replica_array: CompactArray<i32>,
-    removing_replica_array: CompactArray<i32>,
-    adding_replica_array: CompactArray<i32>,
+    _removing_replica_array: CompactArray<i32>,
+    _adding_replica_array: CompactArray<i32>,
     leader_id: i32,
     leader_epoch: i32,
-    partition_epoch: i32,
-    directories_array: CompactArray<i128>,
-    tagged_fields_count: u8,
+    _partition_epoch: i32,
+    _directories_array: CompactArray<i128>,
+    _tagged_fields_count: u8,
 }
 
 impl PartitionRecord {
@@ -130,20 +128,20 @@ impl PartitionRecord {
 impl Deserialize for PartitionRecord {
     fn deserialize(bytes: &mut Bytes) -> Self {
         Self {
-            frame_version: bytes.get_i8(),
-            record_type: bytes.get_i8(),
-            version: bytes.get_i8(),
+            _frame_version: bytes.get_i8(),
+            _record_type: bytes.get_i8(),
+            _version: bytes.get_i8(),
             partition_id: bytes.get_i32(),
             topic_uuid: bytes.get_i128(),
             replica_array: CompactArray::<i32>::deserialize(bytes),
             in_sync_replica_array: CompactArray::<i32>::deserialize(bytes),
-            removing_replica_array: CompactArray::<i32>::deserialize(bytes),
-            adding_replica_array: CompactArray::<i32>::deserialize(bytes),
+            _removing_replica_array: CompactArray::<i32>::deserialize(bytes),
+            _adding_replica_array: CompactArray::<i32>::deserialize(bytes),
             leader_id: bytes.get_i32(),
             leader_epoch: bytes.get_i32(),
-            partition_epoch: bytes.get_i32(),
-            directories_array: CompactArray::<i128>::deserialize(bytes),
-            tagged_fields_count: bytes.get_u8(),
+            _partition_epoch: bytes.get_i32(),
+            _directories_array: CompactArray::<i128>::deserialize(bytes),
+            _tagged_fields_count: bytes.get_u8(),
         }
     }
 }

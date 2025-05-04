@@ -10,8 +10,8 @@ use super::{CompactArray, Deserialize, RequestHeader, Serialize, TextData};
 #[derive(Debug)]
 pub struct DescribeTopicPartitionsRequest {
     topics_array: CompactArray<TopicRequestItem>,
-    response_partition_limit: i32,
-    cursor: i8,
+    _response_partition_limit: i32,
+    _cursor: i8,
 }
 
 #[derive(Debug)]
@@ -36,8 +36,8 @@ impl Deserialize for DescribeTopicPartitionsRequest {
         let cursor = bytes.get_i8();
         Self {
             topics_array,
-            response_partition_limit,
-            cursor,
+            _response_partition_limit: response_partition_limit,
+            _cursor: cursor,
         }
     }
 }

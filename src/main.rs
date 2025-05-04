@@ -5,7 +5,7 @@ use anyhow::{Context, Result};
 use codecrafters_kafka::server;
 
 fn main() -> Result<()> {
-    let server = server::Server::new();
+    let server = server::Server;
     server.run().context("Server error")?;
     Ok(())
 }

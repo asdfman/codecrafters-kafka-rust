@@ -6,10 +6,10 @@ use crc32c::crc32c;
 #[derive(Debug)]
 pub struct RecordBatch {
     base_offset: i64,
-    batch_length: i32,
+    _batch_length: i32,
     partition_leader_epoch: i32,
     magic_byte: i8,
-    crc: i32,
+    _crc: i32,
     attributes: i16,
     last_offset_delta: i32,
     base_timestamp: i64,
@@ -41,10 +41,10 @@ impl Deserialize for RecordBatch {
         }
         Self {
             base_offset,
-            batch_length,
+            _batch_length: batch_length,
             partition_leader_epoch,
             magic_byte,
-            crc,
+            _crc: crc,
             attributes,
             last_offset_delta,
             base_timestamp,
