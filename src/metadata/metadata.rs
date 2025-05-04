@@ -18,7 +18,6 @@ impl Deserialize for MetadataFile {
         while bytes.has_remaining() {
             let record_batch = RecordBatch::deserialize(bytes);
             record_batches.push(record_batch);
-            // dbg!(&bytes.len());
         }
         Self { record_batches }
     }
@@ -46,7 +45,6 @@ pub fn read_partition_metadata(topic_name: String, partition_id: i32) -> Result<
     );
     let mut bytes = read_metadata_bytes(path)?;
     let metadata = MetadataFile::deserialize(&mut bytes);
-    dbg!(&metadata);
     Ok(metadata)
 }
 

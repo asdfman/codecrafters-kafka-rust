@@ -7,7 +7,7 @@ use crate::{
 use anyhow::Result;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 
-use super::{Deserialize, ErrorCode, RequestHeader, Serialize};
+use super::{Deserialize, ErrorCode, RequestHeader, Serialize, VarIntUnsigned};
 
 #[derive(Debug)]
 pub struct FetchRequest {
@@ -65,12 +65,15 @@ impl Serialize for FetchResponseBody {
 #[derive(Debug)]
 pub struct FetchTopicResponse {
     topic_id: i128,
-    partitions: CompactArray<FetchTopicPartition>,
+    partitions: Vec<FetchTopicPartition>,
 }
 impl Serialize for FetchTopicResponse {
     fn serialize(&self, bytes: &mut BytesMut) {
         bytes.put_i128(self.topic_id);
-        self.partitions.serialize(bytes);
+        bytes.put_u8(self.partitions.len() as u8 + 1);
+        for partition in &self.partitions {
+            partition.serialize(bytes);
+        }
         bytes.put_i8(0); // tag buffer
     }
 }
@@ -84,7 +87,7 @@ pub struct FetchTopicPartition {
     log_start_offset: i64,
     aborted_transactions: CompactArray<i32>,
     preferred_read_replica: i32,
-    record_batches: CompactArray<RecordBatch>,
+    record_batches: Vec<RecordBatch>,
 }
 impl Serialize for FetchTopicPartition {
     fn serialize(&self, bytes: &mut BytesMut) {
@@ -95,7 +98,14 @@ impl Serialize for FetchTopicPartition {
         bytes.put_i64(self.log_start_offset);
         self.aborted_transactions.serialize(bytes);
         bytes.put_i32(self.preferred_read_replica);
-        self.record_batches.serialize(bytes);
+
+        let mut record_bytes = BytesMut::new();
+        for record in &self.record_batches {
+            record.serialize(&mut record_bytes);
+        }
+        let length = VarIntUnsigned(record_bytes.len() as u64 + 1);
+        length.serialize(bytes);
+        bytes.put_slice(&record_bytes);
         bytes.put_i8(0); // tag buffer
     }
 }
@@ -103,11 +113,9 @@ impl Serialize for FetchTopicPartition {
 pub fn fetch_handler(bytes: &mut bytes::Bytes, header: RequestHeader) -> Result<Bytes> {
     let metadata = read_cluster_metadata().unwrap();
     let req = FetchRequest::deserialize(bytes);
-    dbg!(&req);
     let mut responses = vec![];
     for topic in req.topics.array.iter() {
         if let Some(topic_found) = metadata.get_topics().find(|x| x.uuid == topic.topic_id) {
-            dbg!(&topic_found);
             responses.push(topic_handler(topic_found, &metadata));
         } else {
             responses.push(topic_not_found_response(topic));
@@ -119,36 +127,38 @@ pub fn fetch_handler(bytes: &mut bytes::Bytes, header: RequestHeader) -> Result<
         responses: CompactArray::new(responses),
     };
     let response = Response::new(header.correlation_id, response_body);
-    dbg!(&response);
     Ok(response.into())
 }
 
 fn topic_handler(topic_record: &TopicRecord, metadata: &MetadataFile) -> FetchTopicResponse {
     let mut partitions = vec![];
     let partition_iter = metadata.get_topic_partitions(&topic_record.uuid);
-    for (idx, partition) in partition_iter.enumerate() {
+    for partition in partition_iter {
         let mut records = vec![];
         if let Ok(partition_metadata) =
             read_partition_metadata(topic_record.topic_name.data.clone(), partition.partition_id)
         {
+            if partition.partition_id == 1 {
+                continue;
+            }
             for record in partition_metadata.record_batches {
                 records.push(record);
             }
         }
         partitions.push(FetchTopicPartition {
-            partition_index: idx as i32,
+            partition_index: partition.partition_id,
             error_code: ErrorCode::NoError,
             high_watermark: 0,
             last_stable_offset: 0,
             log_start_offset: 0,
             aborted_transactions: CompactArray::new(vec![]),
             preferred_read_replica: 0,
-            record_batches: CompactArray::new(records),
+            record_batches: records,
         });
     }
     FetchTopicResponse {
         topic_id: topic_record.uuid,
-        partitions: CompactArray::new(partitions),
+        partitions,
     }
 }
 
@@ -161,10 +171,10 @@ fn topic_not_found_response(topic: &FetchTopic) -> FetchTopicResponse {
         log_start_offset: 0,
         aborted_transactions: CompactArray::new(vec![]),
         preferred_read_replica: 0,
-        record_batches: CompactArray::new(vec![]),
+        record_batches: vec![],
     }];
     FetchTopicResponse {
         topic_id: topic.topic_id,
-        partitions: CompactArray::new(partitions),
+        partitions,
     }
 }

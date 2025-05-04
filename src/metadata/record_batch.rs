@@ -37,7 +37,6 @@ impl Deserialize for RecordBatch {
         let mut records = vec![];
         for _ in 0..records_length {
             let record = Record::deserialize(bytes);
-            dbg!(&record);
             records.push(record);
         }
         Self {
@@ -113,7 +112,7 @@ impl Deserialize for Record {
             }
         }
         let value_length = VarIntSigned::deserialize(bytes);
-        let value = RecordType::deserialize(bytes);
+        let value = RecordType::new(bytes, &value_length.0);
         let headers_length = bytes.get_i8();
         Self {
             length,

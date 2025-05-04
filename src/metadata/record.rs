@@ -11,14 +11,14 @@ pub enum RecordType {
     RawBytes(RawBytesRecord),
 }
 
-impl Deserialize for RecordType {
-    fn deserialize(bytes: &mut Bytes) -> Self {
+impl RecordType {
+    pub fn new(bytes: &mut Bytes, length: &i64) -> Self {
         let record_type = bytes.as_ref()[1] as i8;
         match record_type {
             2 => RecordType::Topic(TopicRecord::deserialize(bytes)),
             3 => RecordType::Partition(PartitionRecord::deserialize(bytes)),
             12 => RecordType::FeatureLevel(FeatureLevelRecord::deserialize(bytes)),
-            _ => RecordType::RawBytes(RawBytesRecord::deserialize(bytes)),
+            _ => RecordType::RawBytes(RawBytesRecord::new(bytes, length)),
         }
     }
 }
@@ -58,9 +58,9 @@ impl RecordType {
 pub struct RawBytesRecord {
     pub data: Bytes,
 }
-impl Deserialize for RawBytesRecord {
-    fn deserialize(bytes: &mut Bytes) -> Self {
-        let data = bytes.copy_to_bytes(bytes.len() - 1);
+impl RawBytesRecord {
+    fn new(bytes: &mut Bytes, length: &i64) -> Self {
+        let data = bytes.copy_to_bytes(*length as usize);
         Self { data }
     }
 }

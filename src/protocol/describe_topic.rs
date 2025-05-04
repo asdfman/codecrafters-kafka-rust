@@ -106,7 +106,6 @@ impl Serialize for Partition {
 pub fn describe_topic_partitions_handler(bytes: &mut Bytes, header: RequestHeader) -> Bytes {
     let metadata = read_cluster_metadata().unwrap();
     let req = DescribeTopicPartitionsRequest::deserialize(bytes);
-    //dbg!(&req);
     let mut topics = vec![];
     for topic in req.topics_array.array.iter() {
         topics.push(handle_topic(&topic.topic_name.data, &metadata));

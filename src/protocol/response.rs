@@ -29,7 +29,6 @@ impl<T: Serialize> Response<T> {
 
 impl<T: Serialize + Debug> From<Response<T>> for Bytes {
     fn from(response: Response<T>) -> Self {
-        //dbg!(&response);
         let mut bytes = BytesMut::new();
         bytes.put_bytes(0, 4); // reserve 4 bytes for size
         bytes.put_i32(response.correlation_id);
