@@ -1,15 +1,15 @@
 use crate::{
     metadata::{PartitionRecord, RecordBatch, TopicRecord},
-    protocol::Deserialize,
+    protocol::{Deserialize, Serialize},
 };
 use anyhow::Result;
-use bytes::{Buf, Bytes};
+use bytes::{Buf, Bytes, BytesMut};
 use std::fs::File;
 use std::io::Read;
 
 #[derive(Debug)]
 pub struct MetadataFile {
-    record_batches: Vec<RecordBatch>,
+    pub record_batches: Vec<RecordBatch>,
 }
 
 impl Deserialize for MetadataFile {
@@ -24,16 +24,35 @@ impl Deserialize for MetadataFile {
     }
 }
 
-fn read_metadata_bytes() -> Result<Bytes> {
-    let mut file =
-        File::open("/tmp/kraft-combined-logs/__cluster_metadata-0/00000000000000000000.log")?;
+impl Serialize for MetadataFile {
+    fn serialize(&self, bytes: &mut BytesMut) {
+        for record_batch in &self.record_batches {
+            record_batch.serialize(bytes);
+        }
+    }
+}
+
+fn read_metadata_bytes(path: String) -> Result<Bytes> {
+    let mut file = File::open(path)?;
     let mut buffer = Vec::new();
     file.read_to_end(&mut buffer)?;
     Ok(Bytes::from(buffer))
 }
 
-pub fn read_metadata() -> Result<MetadataFile> {
-    let mut bytes = read_metadata_bytes()?;
+pub fn read_partition_metadata(topic_name: String, partition_id: i32) -> Result<MetadataFile> {
+    let path = format!(
+        "/tmp/kraft-combined-logs/{}-{}/00000000000000000000.log",
+        topic_name, partition_id
+    );
+    let mut bytes = read_metadata_bytes(path)?;
+    let metadata = MetadataFile::deserialize(&mut bytes);
+    dbg!(&metadata);
+    Ok(metadata)
+}
+
+pub fn read_cluster_metadata() -> Result<MetadataFile> {
+    let path = "/tmp/kraft-combined-logs/__cluster_metadata-0/00000000000000000000.log".to_string();
+    let mut bytes = read_metadata_bytes(path)?;
     Ok(MetadataFile::deserialize(&mut bytes))
 }
 

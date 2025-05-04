@@ -1,5 +1,7 @@
 use crate::{
-    metadata::{read_metadata, MetadataFile},
+    metadata::{
+        read_cluster_metadata, read_partition_metadata, MetadataFile, RecordBatch, TopicRecord,
+    },
     protocol::{CompactArray, Response},
 };
 use anyhow::Result;
@@ -82,7 +84,7 @@ pub struct FetchTopicPartition {
     log_start_offset: i64,
     aborted_transactions: CompactArray<i32>,
     preferred_read_replica: i32,
-    record_batches: CompactArray<i32>,
+    record_batches: CompactArray<RecordBatch>,
 }
 impl Serialize for FetchTopicPartition {
     fn serialize(&self, bytes: &mut BytesMut) {
@@ -98,16 +100,17 @@ impl Serialize for FetchTopicPartition {
     }
 }
 
-pub fn fetch_handler(bytes: &mut bytes::Bytes, header: RequestHeader) -> Bytes {
-    let metadata = read_metadata().unwrap();
+pub fn fetch_handler(bytes: &mut bytes::Bytes, header: RequestHeader) -> Result<Bytes> {
+    let metadata = read_cluster_metadata().unwrap();
     let req = FetchRequest::deserialize(bytes);
     dbg!(&req);
     let mut responses = vec![];
     for topic in req.topics.array.iter() {
         if let Some(topic_found) = metadata.get_topics().find(|x| x.uuid == topic.topic_id) {
-            responses.push(topic_not_found_response(topic, &metadata, true));
+            dbg!(&topic_found);
+            responses.push(topic_handler(topic_found, &metadata));
         } else {
-            responses.push(topic_not_found_response(topic, &metadata, false));
+            responses.push(topic_not_found_response(topic));
         }
     }
     let response_body = FetchResponseBody {
@@ -117,29 +120,49 @@ pub fn fetch_handler(bytes: &mut bytes::Bytes, header: RequestHeader) -> Bytes {
     };
     let response = Response::new(header.correlation_id, response_body);
     dbg!(&response);
-    response.into()
+    Ok(response.into())
 }
 
-fn topic_not_found_response(
-    topic: &FetchTopic,
-    metadata: &MetadataFile,
-    found: bool,
-) -> FetchTopicResponse {
+fn topic_handler(topic_record: &TopicRecord, metadata: &MetadataFile) -> FetchTopicResponse {
     let mut partitions = vec![];
-    partitions.push(FetchTopicPartition {
+    let partition_iter = metadata.get_topic_partitions(&topic_record.uuid);
+    for (idx, partition) in partition_iter.enumerate() {
+        let mut records = vec![];
+        if let Ok(partition_metadata) =
+            read_partition_metadata(topic_record.topic_name.data.clone(), partition.partition_id)
+        {
+            for record in partition_metadata.record_batches {
+                records.push(record);
+            }
+        }
+        partitions.push(FetchTopicPartition {
+            partition_index: idx as i32,
+            error_code: ErrorCode::NoError,
+            high_watermark: 0,
+            last_stable_offset: 0,
+            log_start_offset: 0,
+            aborted_transactions: CompactArray::new(vec![]),
+            preferred_read_replica: 0,
+            record_batches: CompactArray::new(records),
+        });
+    }
+    FetchTopicResponse {
+        topic_id: topic_record.uuid,
+        partitions: CompactArray::new(partitions),
+    }
+}
+
+fn topic_not_found_response(topic: &FetchTopic) -> FetchTopicResponse {
+    let partitions = vec![FetchTopicPartition {
         partition_index: 0,
-        error_code: if !found {
-            ErrorCode::UnknownTopic
-        } else {
-            ErrorCode::NoError
-        },
+        error_code: ErrorCode::UnknownTopic,
         high_watermark: 0,
         last_stable_offset: 0,
         log_start_offset: 0,
         aborted_transactions: CompactArray::new(vec![]),
         preferred_read_replica: 0,
         record_batches: CompactArray::new(vec![]),
-    });
+    }];
     FetchTopicResponse {
         topic_id: topic.topic_id,
         partitions: CompactArray::new(partitions),

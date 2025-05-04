@@ -40,3 +40,11 @@ impl Serialize for VarIntUnsigned {
         bytes.put_u8(value as u8);
     }
 }
+
+impl Serialize for VarIntSigned {
+    fn serialize(&self, bytes: &mut BytesMut) {
+        // zigzag encode + serialize unsigned
+        let n = ((self.0 << 1) ^ (self.0 >> 63)) as u64;
+        VarIntUnsigned(n).serialize(bytes);
+    }
+}

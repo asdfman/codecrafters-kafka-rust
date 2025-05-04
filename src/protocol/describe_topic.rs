@@ -1,7 +1,7 @@
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 
 use crate::{
-    metadata::{read_metadata, MetadataFile},
+    metadata::{read_cluster_metadata, MetadataFile},
     protocol::{ErrorCode, Response},
 };
 
@@ -104,7 +104,7 @@ impl Serialize for Partition {
 }
 
 pub fn describe_topic_partitions_handler(bytes: &mut Bytes, header: RequestHeader) -> Bytes {
-    let metadata = read_metadata().unwrap();
+    let metadata = read_cluster_metadata().unwrap();
     let req = DescribeTopicPartitionsRequest::deserialize(bytes);
     //dbg!(&req);
     let mut topics = vec![];

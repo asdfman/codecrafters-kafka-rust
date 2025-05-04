@@ -1,11 +1,14 @@
-use crate::protocol::{CompactArray, Deserialize, Partition, TextData, VarIntUnsigned};
-use bytes::{Buf, Bytes};
+use crate::protocol::{
+    CompactArray, Deserialize, Partition, Serialize, TextData, VarIntSigned, VarIntUnsigned,
+};
+use bytes::{Buf, BufMut, Bytes};
 
 #[derive(Debug)]
 pub enum RecordType {
     Topic(TopicRecord),
     Partition(PartitionRecord),
     FeatureLevel(FeatureLevelRecord),
+    RawBytes(RawBytesRecord),
 }
 
 impl Deserialize for RecordType {
@@ -15,7 +18,19 @@ impl Deserialize for RecordType {
             2 => RecordType::Topic(TopicRecord::deserialize(bytes)),
             3 => RecordType::Partition(PartitionRecord::deserialize(bytes)),
             12 => RecordType::FeatureLevel(FeatureLevelRecord::deserialize(bytes)),
-            _ => panic!("Unknown record type"),
+            _ => RecordType::RawBytes(RawBytesRecord::deserialize(bytes)),
+        }
+    }
+}
+
+impl Serialize for RecordType {
+    fn serialize(&self, bytes: &mut bytes::BytesMut) {
+        match self {
+            // RecordType::Topic(topic) => topic.serialize(bytes),
+            // RecordType::Partition(partition) => partition.serialize(bytes),
+            RecordType::FeatureLevel(feature_level) => feature_level.serialize(bytes),
+            RecordType::RawBytes(raw_bytes) => raw_bytes.serialize(bytes),
+            _ => (),
         }
     }
 }
@@ -36,6 +51,22 @@ impl RecordType {
             }
         }
         None
+    }
+}
+
+#[derive(Debug)]
+pub struct RawBytesRecord {
+    pub data: Bytes,
+}
+impl Deserialize for RawBytesRecord {
+    fn deserialize(bytes: &mut Bytes) -> Self {
+        let data = bytes.copy_to_bytes(bytes.len() - 1);
+        Self { data }
+    }
+}
+impl Serialize for RawBytesRecord {
+    fn serialize(&self, bytes: &mut bytes::BytesMut) {
+        bytes.put_slice(&self.data);
     }
 }
 
@@ -67,7 +98,7 @@ pub struct PartitionRecord {
     frame_version: i8,
     record_type: i8,
     version: i8,
-    partition_id: i32,
+    pub partition_id: i32,
     topic_uuid: i128,
     replica_array: CompactArray<i32>,
     in_sync_replica_array: CompactArray<i32>,
@@ -133,7 +164,7 @@ impl Deserialize for FeatureLevelRecord {
         let frame_version: i8 = bytes.get_i8();
         let record_type: i8 = bytes.get_i8();
         let version: i8 = bytes.get_i8();
-        let name_length: VarIntUnsigned = VarIntUnsigned::deserialize(bytes);
+        let name_length = VarIntUnsigned::deserialize(bytes);
         let name: String =
             String::from_utf8_lossy(&bytes.copy_to_bytes(name_length.0 as usize - 1)).to_string();
         let feature_level: i16 = bytes.get_i16();
@@ -147,6 +178,18 @@ impl Deserialize for FeatureLevelRecord {
             feature_level,
             tagged_fields_count,
         }
+    }
+}
+
+impl Serialize for FeatureLevelRecord {
+    fn serialize(&self, bytes: &mut bytes::BytesMut) {
+        bytes.put_i8(self.frame_version);
+        bytes.put_i8(self.record_type);
+        bytes.put_i8(self.version);
+        self.name_length.serialize(bytes);
+        bytes.put_slice(self.name.as_bytes());
+        bytes.put_i16(self.feature_level);
+        bytes.put_u8(self.tagged_fields_count);
     }
 }
 

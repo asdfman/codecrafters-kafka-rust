@@ -1,6 +1,7 @@
-use crate::protocol::Deserialize;
+use crate::protocol::{Deserialize, Serialize};
 use crate::{metadata::record::RecordType, protocol::VarIntSigned};
-use bytes::{Buf, Bytes};
+use bytes::{Buf, BufMut, Bytes, BytesMut};
+use crc32c::crc32c;
 
 #[derive(Debug)]
 pub struct RecordBatch {
@@ -36,6 +37,7 @@ impl Deserialize for RecordBatch {
         let mut records = vec![];
         for _ in 0..records_length {
             let record = Record::deserialize(bytes);
+            dbg!(&record);
             records.push(record);
         }
         Self {
@@ -53,6 +55,35 @@ impl Deserialize for RecordBatch {
             base_sequence,
             records,
         }
+    }
+}
+
+impl Serialize for RecordBatch {
+    fn serialize(&self, bytes: &mut bytes::BytesMut) {
+        let start_offset = bytes.len();
+        bytes.put_i64(self.base_offset);
+        let batch_length_start = bytes.len();
+        bytes.put_i32(0); // reserve 4 bytes for batch length
+        bytes.put_i32(self.partition_leader_epoch);
+        bytes.put_i8(self.magic_byte);
+        let crc_start = bytes.len();
+        bytes.put_i32(0); // reserve 4 bytes for crc
+        bytes.put_i16(self.attributes);
+        bytes.put_i32(self.last_offset_delta);
+        bytes.put_i64(self.base_timestamp);
+        bytes.put_i64(self.max_timestamp);
+        bytes.put_i64(self.producer_id);
+        bytes.put_i16(self.producer_epoch);
+        bytes.put_i32(self.base_sequence);
+        bytes.put_i32(self.records.len() as i32);
+        for record in &self.records {
+            record.serialize(bytes);
+        }
+        let crc = crc32c(&bytes[crc_start + 4..]);
+        bytes[crc_start..crc_start + 4].copy_from_slice(&crc.to_be_bytes());
+        let batch_length = (bytes.len() - start_offset - 12) as i32;
+        bytes[batch_length_start..batch_length_start + 4]
+            .copy_from_slice(&batch_length.to_be_bytes());
     }
 }
 
@@ -95,5 +126,19 @@ impl Deserialize for Record {
             value,
             headers_length,
         }
+    }
+}
+
+impl Serialize for Record {
+    fn serialize(&self, bytes: &mut BytesMut) {
+        self.length.serialize(bytes);
+        bytes.put_i8(self.attributes);
+        self.timestamp_delta.serialize(bytes);
+        self.offset_delta.serialize(bytes);
+        self.key_length.serialize(bytes);
+        bytes.put_slice(&self.key);
+        self.value_length.serialize(bytes);
+        self.value.serialize(bytes);
+        bytes.put_i8(self.headers_length);
     }
 }
