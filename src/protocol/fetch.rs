@@ -132,6 +132,7 @@ fn topic_handler(topic_record: &TopicRecord, metadata: &MetadataFile) -> FetchTo
     let mut partitions = vec![];
     let partition_iter = metadata.get_topic_partitions(&topic_record.uuid);
     for partition in partition_iter {
+        dbg!(partition);
         let mut records = vec![];
         if let Ok(partition_metadata) =
             read_partition_metadata(topic_record.topic_name.data.clone(), partition.partition_id)
