@@ -1,8 +1,10 @@
+use std::collections::HashSet;
+
 use crate::{
     metadata::{
         read_cluster_metadata, read_partition_metadata, MetadataFile, RecordBatch, TopicRecord,
     },
-    protocol::{CompactArray, Response},
+    protocol::{CompactArray, Response, TextData},
 };
 use anyhow::Result;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
@@ -36,11 +38,33 @@ impl Deserialize for FetchRequest {
 #[derive(Debug)]
 pub struct FetchTopic {
     topic_id: i128,
+    partitions: CompactArray<FetchTopicRequestPartition>,
 }
 impl Deserialize for FetchTopic {
     fn deserialize(bytes: &mut bytes::Bytes) -> Self {
         Self {
             topic_id: bytes.get_i128(),
+            partitions: CompactArray::<FetchTopicRequestPartition>::deserialize(bytes),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct FetchTopicRequestPartition {
+    partition_index: i32,
+    _current_leader_epoch: i32,
+    _fetch_offset: i64,
+    _log_start_offset: i64,
+    _partition_max_bytes: i32,
+}
+impl Deserialize for FetchTopicRequestPartition {
+    fn deserialize(bytes: &mut bytes::Bytes) -> Self {
+        Self {
+            partition_index: bytes.get_i32(),
+            _current_leader_epoch: bytes.get_i32(),
+            _fetch_offset: bytes.get_i64(),
+            _log_start_offset: bytes.get_i64(),
+            _partition_max_bytes: bytes.get_i32(),
         }
     }
 }
@@ -109,10 +133,17 @@ impl Serialize for FetchTopicPartition {
 pub fn fetch_handler(bytes: &mut bytes::Bytes, header: RequestHeader) -> Result<Bytes> {
     let metadata = read_cluster_metadata().unwrap();
     let req = FetchRequest::deserialize(bytes);
+    dbg!(&req);
     let mut responses = vec![];
     for topic in req.topics.array.iter() {
         if let Some(topic_found) = metadata.get_topics().find(|x| x.uuid == topic.topic_id) {
-            responses.push(topic_handler(topic_found, &metadata));
+            let partition_ids = topic
+                .partitions
+                .array
+                .iter()
+                .map(|x| x.partition_index)
+                .collect::<HashSet<_>>();
+            responses.push(topic_handler(topic_found, &metadata, partition_ids));
         } else {
             responses.push(topic_not_found_response(topic));
         }
@@ -126,10 +157,17 @@ pub fn fetch_handler(bytes: &mut bytes::Bytes, header: RequestHeader) -> Result<
     Ok(response.into())
 }
 
-fn topic_handler(topic_record: &TopicRecord, metadata: &MetadataFile) -> FetchTopicResponse {
+fn topic_handler(
+    topic_record: &TopicRecord,
+    metadata: &MetadataFile,
+    partition_ids: HashSet<i32>,
+) -> FetchTopicResponse {
     let mut partitions = vec![];
     let partition_iter = metadata.get_topic_partitions(&topic_record.uuid);
     for partition in partition_iter {
+        if !partition_ids.contains(&partition.partition_id) {
+            continue;
+        }
         let mut records = vec![];
         if let Ok(partition_metadata) =
             read_partition_metadata(topic_record.topic_name.data.clone(), partition.partition_id)
