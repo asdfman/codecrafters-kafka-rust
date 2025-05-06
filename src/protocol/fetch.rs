@@ -133,7 +133,6 @@ impl Serialize for FetchTopicPartition {
 pub fn fetch_handler(bytes: &mut bytes::Bytes, header: RequestHeader) -> Result<Bytes> {
     let metadata = read_cluster_metadata().unwrap();
     let req = FetchRequest::deserialize(bytes);
-    dbg!(&req);
     let mut responses = vec![];
     for topic in req.topics.array.iter() {
         if let Some(topic_found) = metadata.get_topics().find(|x| x.uuid == topic.topic_id) {
@@ -175,10 +174,6 @@ fn topic_handler(
             for record in partition_metadata.record_batches {
                 records.push(record);
             }
-        }
-        // don't add partition if there were no records
-        if records.is_empty() {
-            continue;
         }
         partitions.push(FetchTopicPartition {
             partition_index: partition.partition_id,
